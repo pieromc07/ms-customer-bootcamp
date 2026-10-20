@@ -31,3 +31,6 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Credenciales locales de MongoDB (no versionar) ###
+src/main/resources/mongo-credentials.yaml

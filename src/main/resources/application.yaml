@@ -2,9 +2,9 @@ spring:
   application:
     name: ms-customer
   config:
-    import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
-  mongodb:
-    uri: mongodb://mscustomer:mscustomer123@localhost:27017/customerdb?authSource=admin
+    import:
+      - optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
+      - optional:classpath:mongo-credentials.yaml
 
 server:
   port: ${SERVER_PORT:8080}
