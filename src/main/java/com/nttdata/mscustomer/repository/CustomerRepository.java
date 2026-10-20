@@ -13,4 +13,9 @@ public interface CustomerRepository extends ReactiveMongoRepository<CustomerDocu
             DocumentType documentType,
             String documentNumber
     );
+
+    Mono<CustomerDocument> findByDocumentTypeAndDocumentNumber(
+            DocumentType documentType,
+            String documentNumber
+    );
 }

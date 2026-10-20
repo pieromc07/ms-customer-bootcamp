@@ -17,24 +17,41 @@ import com.nttdata.mscustomer.repository.CustomerRepository;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.core.Single;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import org.springframework.data.domain.Example;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 @Service
 public class CustomerService {
 
+    private static final int MIN_PASSWORD_LENGTH = 8;
+    private static final int MAX_PASSWORD_BYTES = 72;
+
     private final CustomerRepository customerRepository;
     private final CustomerMapper customerMapper;
+    private final PasswordEncoder passwordEncoder;
 
     public CustomerService(
             CustomerRepository customerRepository,
-            CustomerMapper customerMapper) {
+            CustomerMapper customerMapper,
+            PasswordEncoder passwordEncoder) {
         this.customerRepository = customerRepository;
         this.customerMapper = customerMapper;
+        this.passwordEncoder = passwordEncoder;
     }
 
-    public Single<Customer> createCustomer(Customer customer) {
+    public Single<Customer> createCustomer(Customer customer, String rawPassword) {
+        if (rawPassword == null) {
+            return Single.error(() -> new IllegalArgumentException("Password is required"));
+        }
+        int passwordBytes = rawPassword.getBytes(StandardCharsets.UTF_8).length;
+        if (rawPassword.length() < MIN_PASSWORD_LENGTH || passwordBytes > MAX_PASSWORD_BYTES) {
+            return Single.error(() -> new IllegalArgumentException(
+                    "Password must have between 8 and 72 bytes"));
+        }
+
         return toSingle(customerRepository.existsByDocumentTypeAndDocumentNumber(
                 customer.getDocumentType(),
                 customer.getDocumentNumber()
@@ -49,6 +66,7 @@ public class CustomerService {
                 ));
             }
 
+            customer.assignPasswordHash(passwordEncoder.encode(rawPassword));
             return toSingle(customerRepository.save(customerMapper.toDocument(customer)))
                     .map(customerMapper::toDomain);
         });

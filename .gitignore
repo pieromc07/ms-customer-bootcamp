@@ -34,3 +34,6 @@ build/
 
 ### Credenciales locales de MongoDB (no versionar) ###
 src/main/resources/mongo-credentials.yaml
+
+### Claves privadas JWT (no versionar) ###
+secrets/

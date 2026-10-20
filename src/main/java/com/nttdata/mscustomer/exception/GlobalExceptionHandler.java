@@ -41,6 +41,16 @@ public class GlobalExceptionHandler {
                 .body(toApiError(HttpStatus.CONFLICT, exception.getMessage(), exchange));
     }
 
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ResponseEntity<ApiError> handleInvalidCredentials(
+            InvalidCredentialsException exception,
+            ServerWebExchange exchange) {
+
+        return ResponseEntity
+                .status(HttpStatus.UNAUTHORIZED)
+                .body(toApiError(HttpStatus.UNAUTHORIZED, exception.getMessage(), exchange));
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiError> handleInvalidCustomer(
             IllegalArgumentException exception,

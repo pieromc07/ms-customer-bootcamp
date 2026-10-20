@@ -25,6 +25,7 @@ public class Customer {
     private String documentNumber;
     private String email;
     private String phone;
+    private String passwordHash;
     private CustomerStatus status;
     private PersonalDetails personalDetails;
     private BusinessDetails businessDetails;
@@ -120,6 +121,13 @@ public class Customer {
         status = CustomerStatus.INACTIVE;
         updatedAt = now;
         return true;
+    }
+
+    public void assignPasswordHash(String hash) {
+        if (hash == null || hash.isBlank()) {
+            throw new IllegalArgumentException("Password hash is required");
+        }
+        this.passwordHash = hash;
     }
 
     private void ensureActive() {

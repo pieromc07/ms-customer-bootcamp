@@ -19,3 +19,9 @@ management:
     web:
       exposure:
         include: health,info
+
+jwt:
+  issuer: ms-customer
+  expiration: PT1H
+  private-key-location: ${JWT_PRIVATE_KEY_LOCATION:file:secrets/jwt-private-key.pem}
+  public-key-location: ${JWT_PUBLIC_KEY_LOCATION:file:secrets/jwt-public-key.pem}

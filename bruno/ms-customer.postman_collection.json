@@ -30,7 +30,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"customerType\": \"PERSONAL\",\n  \"documentType\": \"DNI\",\n  \"documentNumber\": \"{{dni}}\",\n  \"profile\": \"VIP\",\n  \"email\": \"ana.torres@example.com\",\n  \"phone\": \"999111222\",\n  \"personalDetails\": {\n    \"firstName\": \"Ana\",\n    \"lastName\": \"Torres\"\n  }\n}",
+              "raw": "{\n  \"customerType\": \"PERSONAL\",\n  \"documentType\": \"DNI\",\n  \"documentNumber\": \"{{dni}}\",\n  \"password\": \"ClaveSegura1\",\n  \"profile\": \"VIP\",\n  \"email\": \"ana.torres@example.com\",\n  \"phone\": \"999111222\",\n  \"personalDetails\": {\n    \"firstName\": \"Ana\",\n    \"lastName\": \"Torres\"\n  }\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": {
@@ -61,7 +61,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"customerType\": \"BUSINESS\",\n  \"documentType\": \"RUC\",\n  \"documentNumber\": \"{{ruc}}\",\n  \"profile\": \"PYME\",\n  \"email\": \"contacto@ejemplo.com.pe\",\n  \"phone\": \"014445566\",\n  \"businessDetails\": {\n    \"legalName\": \"Empresa Ejemplo S.A.C.\",\n    \"tradeName\": \"Ejemplo\"\n  }\n}",
+              "raw": "{\n  \"customerType\": \"BUSINESS\",\n  \"documentType\": \"RUC\",\n  \"documentNumber\": \"{{ruc}}\",\n  \"password\": \"ClaveSegura1\",\n  \"profile\": \"PYME\",\n  \"email\": \"contacto@ejemplo.com.pe\",\n  \"phone\": \"014445566\",\n  \"businessDetails\": {\n    \"legalName\": \"Empresa Ejemplo S.A.C.\",\n    \"tradeName\": \"Ejemplo\"\n  }\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": {
@@ -91,7 +91,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"customerType\": \"PERSONAL\",\n  \"documentType\": \"DNI\",\n  \"documentNumber\": \"{{dni}}\",\n  \"profile\": \"STANDARD\",\n  \"personalDetails\": {\n    \"firstName\": \"Otra\",\n    \"lastName\": \"Persona\"\n  }\n}",
+              "raw": "{\n  \"customerType\": \"PERSONAL\",\n  \"documentType\": \"DNI\",\n  \"documentNumber\": \"{{dni}}\",\n  \"password\": \"ClaveSegura1\",\n  \"profile\": \"STANDARD\",\n  \"personalDetails\": {\n    \"firstName\": \"Otra\",\n    \"lastName\": \"Persona\"\n  }\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": {
@@ -121,7 +121,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"customerType\": \"PERSONAL\",\n  \"documentType\": \"DNI\",\n  \"documentNumber\": \"1234567\",\n  \"profile\": \"STANDARD\",\n  \"personalDetails\": {\n    \"firstName\": \"Luis\",\n    \"lastName\": \"Gomez\"\n  }\n}",
+              "raw": "{\n  \"customerType\": \"PERSONAL\",\n  \"documentType\": \"DNI\",\n  \"documentNumber\": \"1234567\",\n  \"password\": \"ClaveSegura1\",\n  \"profile\": \"STANDARD\",\n  \"personalDetails\": {\n    \"firstName\": \"Luis\",\n    \"lastName\": \"Gomez\"\n  }\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": {
@@ -151,13 +151,115 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"customerType\": \"PERSONAL\",\n  \"documentType\": \"CE\",\n  \"documentNumber\": \"001234567\",\n  \"profile\": \"PYME\",\n  \"personalDetails\": {\n    \"firstName\": \"Luis\",\n    \"lastName\": \"Gomez\"\n  }\n}",
+              "raw": "{\n  \"customerType\": \"PERSONAL\",\n  \"documentType\": \"CE\",\n  \"documentNumber\": \"001234567\",\n  \"password\": \"ClaveSegura1\",\n  \"profile\": \"PYME\",\n  \"personalDetails\": {\n    \"firstName\": \"Luis\",\n    \"lastName\": \"Gomez\"\n  }\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/customers",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "customers"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "1b. Autenticacion (login)",
+      "item": [
+        {
+          "name": "Login con credenciales correctas (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Devuelve accessToken Bearer\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.accessToken).to.be.a(\"string\").and.not.be.empty;",
+                  "    pm.expect(body.tokenType).to.eql(\"Bearer\");",
+                  "    pm.expect(body.expiresIn).to.eql(3600);",
+                  "});",
+                  "pm.collectionVariables.set(\"accessToken\", pm.response.json().accessToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"documentType\": \"DNI\",\n  \"documentNumber\": \"{{dni}}\",\n  \"password\": \"ClaveSegura1\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Login con contrasena incorrecta (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 401\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"documentType\": \"DNI\",\n  \"documentNumber\": \"{{dni}}\",\n  \"password\": \"OtraClave999\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Login con documento inexistente (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 401\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"documentType\": \"DNI\",\n  \"documentNumber\": \"00000001\",\n  \"password\": \"ClaveSegura1\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "login"]
             }
           }
         }
@@ -700,6 +802,7 @@
     { "key": "dni", "value": "45871236" },
     { "key": "ruc", "value": "20601234567" },
     { "key": "customerId", "value": "" },
-    { "key": "businessId", "value": "" }
+    { "key": "businessId", "value": "" },
+    { "key": "accessToken", "value": "" }
   ]
 }

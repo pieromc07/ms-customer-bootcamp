@@ -40,8 +40,9 @@ public class CustomerController implements CustomersApi {
             ServerWebExchange exchange) {
 
         return createCustomerRequest
-                .map(customerMapper::toDomain)
-                .flatMap(customer -> toMono(customerService.createCustomer(customer)))
+                .flatMap(request -> toMono(customerService.createCustomer(
+                        customerMapper.toDomain(request),
+                        request.getPassword())))
                 .map(customerMapper::toResponse)
                 .map(response -> ResponseEntity
                         .created(URI.create("/api/v1/customers/" + response.getId()))

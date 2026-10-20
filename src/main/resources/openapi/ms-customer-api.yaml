@@ -36,6 +36,7 @@ paths:
                   customerType: PERSONAL
                   documentType: DNI
                   documentNumber: "12345678"
+                  password: ClaveSegura1
                   profile: STANDARD
                   email: ana@example.com
                   phone: "999888777"
@@ -48,6 +49,7 @@ paths:
                   customerType: BUSINESS
                   documentType: RUC
                   documentNumber: "20123456789"
+                  password: ClaveEmpresa2
                   profile: PYME
                   businessDetails:
                     legalName: Empresa Ejemplo S.A.C.
@@ -499,6 +501,64 @@ paths:
                 message: An unexpected server error occurred
                 path: /api/v1/customers/65f1a8b2c4d9e01234567890
 
+  /api/v1/auth/login:
+    post:
+      tags:
+        - Auth
+      summary: Authenticate a customer
+      description: >
+        Validates the document type, document number and password of an
+        ACTIVE customer and returns a signed JWT. Every failure returns the
+        same 401 response so that the caller cannot tell which field was wrong.
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            examples:
+              personalLogin:
+                summary: Personal customer login
+                value:
+                  documentType: DNI
+                  documentNumber: "12345678"
+                  password: ClaveSegura1
+      responses:
+        '200':
+          description: Authentication successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+              example:
+                accessToken: eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiI2NWYxYThiMmM0ZDllMDEyMzQ1Njc4OTAifQ.signature
+                tokenType: Bearer
+                expiresIn: 3600
+        '400':
+          description: Invalid JSON or missing required fields.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Invalid credentials or customer not allowed to log in.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              example:
+                status: 401
+                error: UNAUTHORIZED
+                message: Invalid credentials
+                path: /api/v1/auth/login
+        '500':
+          description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
 components:
   schemas:
 
@@ -735,6 +795,7 @@ components:
         - customerType
         - documentType
         - documentNumber
+        - password
         - profile
       properties:
         customerType:
@@ -746,6 +807,14 @@ components:
         documentNumber:
           type: string
           minLength: 1
+        password:
+          type: string
+          writeOnly: true
+          minLength: 8
+          maxLength: 72
+          description: >
+            Login password. Stored only as a BCrypt hash and never returned.
+            Maximum 72 bytes because of the BCrypt limit.
         email:
           type: string
           format: email
@@ -760,6 +829,43 @@ components:
           $ref: '#/components/schemas/PersonalDetails'
         businessDetails:
           $ref: '#/components/schemas/BusinessDetails'
+
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - documentType
+        - documentNumber
+        - password
+      properties:
+        documentType:
+          type: string
+          enum: [DNI, CE, PASSPORT, RUC]
+        documentNumber:
+          type: string
+          minLength: 1
+        password:
+          type: string
+          minLength: 1
+          maxLength: 72
+          format: password
+
+    TokenResponse:
+      type: object
+      required:
+        - accessToken
+        - tokenType
+        - expiresIn
+      properties:
+        accessToken:
+          type: string
+        tokenType:
+          type: string
+          example: Bearer
+        expiresIn:
+          type: integer
+          format: int64
+          description: Token lifetime in seconds.
 
     UpdateCustomerRequest:
       type: object

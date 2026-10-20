@@ -30,6 +30,7 @@ class CustomerMapperTest {
                 CreateCustomerRequest.CustomerTypeEnum.PERSONAL,
                 CreateCustomerRequest.DocumentTypeEnum.DNI,
                 "12345678",
+                "ClaveSegura1",
                 CreateCustomerRequest.ProfileEnum.VIP);
         request.setEmail(JsonNullable.of("ana@example.com"));
         request.setPhone(JsonNullable.undefined());

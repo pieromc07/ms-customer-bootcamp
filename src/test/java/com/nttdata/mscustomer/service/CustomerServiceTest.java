@@ -1,12 +1,14 @@
 package com.nttdata.mscustomer.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.nttdata.mscustomer.document.CustomerDocument;
@@ -31,6 +33,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Example;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -39,15 +42,21 @@ class CustomerServiceTest {
 
     private static final String ID = "665f1c2e8a1b2c3d4e5f6a7b";
     private static final Instant CREATED = Instant.parse("2024-01-01T00:00:00Z");
+    private static final String PASSWORD = "ClaveSegura1";
+    private static final String HASH = "$2a$10$hashedvalue";
 
     @Mock
     private CustomerRepository customerRepository;
+
+    @Mock
+    private PasswordEncoder passwordEncoder;
 
     private CustomerService customerService;
 
     @BeforeEach
     void setUp() {
-        customerService = new CustomerService(customerRepository, new CustomerMapper());
+        customerService = new CustomerService(
+                customerRepository, new CustomerMapper(), passwordEncoder);
     }
 
     @Test
@@ -56,7 +65,7 @@ class CustomerServiceTest {
                 DocumentType.DNI, "12345678")).thenReturn(Mono.just(true));
 
         assertThrows(DuplicateCustomerException.class,
-                () -> customerService.createCustomer(newPersonal()).blockingGet());
+                () -> customerService.createCustomer(newPersonal(), PASSWORD).blockingGet());
 
         verify(customerRepository, never()).save(any());
     }
@@ -65,14 +74,58 @@ class CustomerServiceTest {
     void createCustomerSavesNewCustomerAsActive() {
         when(customerRepository.existsByDocumentTypeAndDocumentNumber(
                 DocumentType.DNI, "12345678")).thenReturn(Mono.just(false));
+        when(passwordEncoder.encode(PASSWORD)).thenReturn(HASH);
         when(customerRepository.save(any(CustomerDocument.class)))
                 .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
-        Customer saved = customerService.createCustomer(newPersonal()).blockingGet();
+        Customer saved = customerService.createCustomer(newPersonal(), PASSWORD).blockingGet();
 
         assertEquals(CustomerStatus.ACTIVE, saved.getStatus());
         assertEquals("12345678", saved.getDocumentNumber());
         verify(customerRepository, times(1)).save(any(CustomerDocument.class));
+    }
+
+    @Test
+    void createCustomerStoresOnlyTheEncodedPassword() {
+        when(customerRepository.existsByDocumentTypeAndDocumentNumber(
+                DocumentType.DNI, "12345678")).thenReturn(Mono.just(false));
+        when(passwordEncoder.encode(PASSWORD)).thenReturn(HASH);
+        when(customerRepository.save(any(CustomerDocument.class)))
+                .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+
+        Customer saved = customerService.createCustomer(newPersonal(), PASSWORD).blockingGet();
+
+        ArgumentCaptor<CustomerDocument> captor = ArgumentCaptor.forClass(CustomerDocument.class);
+        verify(customerRepository).save(captor.capture());
+        assertEquals(HASH, captor.getValue().getPasswordHash());
+        assertEquals(HASH, saved.getPasswordHash());
+        assertNotEquals(PASSWORD, captor.getValue().getPasswordHash());
+    }
+
+    @Test
+    void createCustomerRejectsMissingPassword() {
+        assertThrows(IllegalArgumentException.class,
+                () -> customerService.createCustomer(newPersonal(), null).blockingGet());
+
+        verifyNoInteractions(customerRepository, passwordEncoder);
+    }
+
+    @Test
+    void createCustomerRejectsPasswordShorterThanEightCharacters() {
+        assertThrows(IllegalArgumentException.class,
+                () -> customerService.createCustomer(newPersonal(), "short").blockingGet());
+
+        verifyNoInteractions(customerRepository, passwordEncoder);
+    }
+
+    @Test
+    void createCustomerRejectsPasswordLongerThanSeventyTwoBytes() {
+        String longPassword = "ñ".repeat(37);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> customerService.createCustomer(newPersonal(), longPassword).blockingGet());
+
+        verifyNoInteractions(customerRepository, passwordEncoder);
     }
 
     @Test

@@ -130,6 +130,7 @@ public class CustomerMapper {
         document.setDocumentNumber(customer.getDocumentNumber());
         document.setEmail(customer.getEmail());
         document.setPhone(customer.getPhone());
+        document.setPasswordHash(customer.getPasswordHash());
         document.setStatus(customer.getStatus());
         document.setPersonalDetails(customer.getPersonalDetails());
         document.setBusinessDetails(customer.getBusinessDetails());
@@ -140,7 +141,7 @@ public class CustomerMapper {
 
     public com.nttdata.mscustomer.model.Customer toDomain(
             CustomerDocument document) {
-        return new com.nttdata.mscustomer.model.Customer(
+        com.nttdata.mscustomer.model.Customer customer = new com.nttdata.mscustomer.model.Customer(
                 document.getId(),
                 document.getCustomerType(),
                 document.getProfile(),
@@ -153,6 +154,8 @@ public class CustomerMapper {
                 document.getBusinessDetails(),
                 document.getCreatedAt(),
                 document.getUpdatedAt());
+        customer.setPasswordHash(document.getPasswordHash());
+        return customer;
     }
 
     public Customer toResponse(

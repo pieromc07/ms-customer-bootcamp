@@ -28,6 +28,7 @@ public class CustomerDocument {
     private String documentNumber;
     private String email;
     private String phone;
+    private String passwordHash;
     private CustomerStatus status;
     private PersonalDetails personalDetails;
     private BusinessDetails businessDetails;
