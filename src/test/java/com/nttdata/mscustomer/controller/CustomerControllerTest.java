@@ -20,6 +20,9 @@ import com.nttdata.mscustomer.model.CustomerChanges;
 import com.nttdata.mscustomer.model.DocumentType;
 import com.nttdata.mscustomer.model.PersonalDetails;
 import com.nttdata.mscustomer.service.CustomerService;
+import io.reactivex.rxjava3.core.Completable;
+import io.reactivex.rxjava3.core.Flowable;
+import io.reactivex.rxjava3.core.Single;
 import java.time.Instant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -50,7 +53,7 @@ class CustomerControllerTest {
 
     @Test
     void getCustomerByIdReturnsOk() {
-        when(customerService.getCustomer(ID)).thenReturn(Mono.just(domainCustomer()));
+        when(customerService.getCustomer(ID)).thenReturn(Single.just(domainCustomer()));
 
         ResponseEntity<com.nttdata.mscustomer.generated.dto.Customer> response =
                 controller.getCustomerById(ID, null).block();
@@ -66,7 +69,7 @@ class CustomerControllerTest {
                 com.nttdata.mscustomer.model.CustomerStatus.ACTIVE,
                 com.nttdata.mscustomer.model.CustomerType.PERSONAL,
                 com.nttdata.mscustomer.model.CustomerProfile.VIP))
-                .thenReturn(Flux.just(domainCustomer()));
+                .thenReturn(Flowable.just(domainCustomer()));
 
         ResponseEntity<Flux<com.nttdata.mscustomer.generated.dto.Customer>> response =
                 controller.getAllCustomers(
@@ -79,7 +82,7 @@ class CustomerControllerTest {
 
     @Test
     void deactivateCustomerReturnsNoContent() {
-        when(customerService.deactivateCustomer(ID)).thenReturn(Mono.empty());
+        when(customerService.deactivateCustomer(ID)).thenReturn(Completable.complete());
 
         ResponseEntity<Void> response = controller.deactivateCustomer(ID, null).block();
 
@@ -90,7 +93,7 @@ class CustomerControllerTest {
     @Test
     void patchWithNullEmailPassesClearToService() {
         when(customerService.updateCustomer(eq(ID), any(CustomerChanges.class)))
-                .thenReturn(Mono.just(domainCustomer()));
+                .thenReturn(Single.just(domainCustomer()));
         PatchCustomerRequest request = new PatchCustomerRequest();
         request.setEmail(org.openapitools.jackson.nullable.JsonNullable.of(null));
 
@@ -108,7 +111,7 @@ class CustomerControllerTest {
     @Test
     void putWithOmittedEmailClearsContactAndReturnsOk() {
         when(customerService.updateCustomer(eq(ID), any(CustomerChanges.class)))
-                .thenReturn(Mono.just(domainCustomer()));
+                .thenReturn(Single.just(domainCustomer()));
         UpdateCustomerRequest request = new UpdateCustomerRequest();
         request.setPersonalDetails(new com.nttdata.mscustomer.generated.dto.PersonalDetails("Ana", "Lopez"));
 

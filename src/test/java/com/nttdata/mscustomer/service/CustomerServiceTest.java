@@ -56,7 +56,7 @@ class CustomerServiceTest {
                 DocumentType.DNI, "12345678")).thenReturn(Mono.just(true));
 
         assertThrows(DuplicateCustomerException.class,
-                () -> customerService.createCustomer(newPersonal()).block());
+                () -> customerService.createCustomer(newPersonal()).blockingGet());
 
         verify(customerRepository, never()).save(any());
     }
@@ -68,7 +68,7 @@ class CustomerServiceTest {
         when(customerRepository.save(any(CustomerDocument.class)))
                 .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
-        Customer saved = customerService.createCustomer(newPersonal()).block();
+        Customer saved = customerService.createCustomer(newPersonal()).blockingGet();
 
         assertEquals(CustomerStatus.ACTIVE, saved.getStatus());
         assertEquals("12345678", saved.getDocumentNumber());
@@ -80,14 +80,14 @@ class CustomerServiceTest {
         when(customerRepository.findById(ID)).thenReturn(Mono.empty());
 
         assertThrows(CustomerNotFoundException.class,
-                () -> customerService.getCustomer(ID).block());
+                () -> customerService.getCustomer(ID).blockingGet());
     }
 
     @Test
     void getCustomerReturnsInactiveCustomer() {
         when(customerRepository.findById(ID)).thenReturn(Mono.just(document(CustomerStatus.INACTIVE)));
 
-        Customer customer = customerService.getCustomer(ID).block();
+        Customer customer = customerService.getCustomer(ID).blockingGet();
 
         assertEquals(CustomerStatus.INACTIVE, customer.getStatus());
     }
@@ -99,7 +99,7 @@ class CustomerServiceTest {
                 ContactUpdate.set("new@example.com"), ContactUpdate.KEEP, null, null);
 
         assertThrows(InactiveCustomerException.class,
-                () -> customerService.updateCustomer(ID, changes).block());
+                () -> customerService.updateCustomer(ID, changes).blockingGet());
 
         verify(customerRepository, never()).save(any());
     }
@@ -113,7 +113,7 @@ class CustomerServiceTest {
                 ContactUpdate.set(null), ContactUpdate.KEEP,
                 new PersonalDetails("Ana", "Perez"), null);
 
-        Customer updated = customerService.updateCustomer(ID, changes).block();
+        Customer updated = customerService.updateCustomer(ID, changes).blockingGet();
 
         assertNull(updated.getEmail());
         assertEquals("999111222", updated.getPhone());
@@ -129,7 +129,7 @@ class CustomerServiceTest {
         CustomerChanges changes = new CustomerChanges(ContactUpdate.KEEP, ContactUpdate.KEEP, null, null);
 
         assertThrows(CustomerNotFoundException.class,
-                () -> customerService.updateCustomer(ID, changes).block());
+                () -> customerService.updateCustomer(ID, changes).blockingGet());
 
         verify(customerRepository, never()).save(any());
     }
@@ -140,7 +140,7 @@ class CustomerServiceTest {
         when(customerRepository.save(any(CustomerDocument.class)))
                 .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
 
-        customerService.deactivateCustomer(ID).block();
+        customerService.deactivateCustomer(ID).blockingAwait();
 
         ArgumentCaptor<CustomerDocument> captor = ArgumentCaptor.forClass(CustomerDocument.class);
         verify(customerRepository).save(captor.capture());
@@ -151,7 +151,7 @@ class CustomerServiceTest {
     void deactivateAlreadyInactiveCustomerDoesNotSave() {
         when(customerRepository.findById(ID)).thenReturn(Mono.just(document(CustomerStatus.INACTIVE)));
 
-        customerService.deactivateCustomer(ID).block();
+        customerService.deactivateCustomer(ID).blockingAwait();
 
         verify(customerRepository, never()).save(any());
     }
@@ -161,7 +161,7 @@ class CustomerServiceTest {
         when(customerRepository.findById(ID)).thenReturn(Mono.empty());
 
         assertThrows(CustomerNotFoundException.class,
-                () -> customerService.deactivateCustomer(ID).block());
+                () -> customerService.deactivateCustomer(ID).blockingAwait());
     }
 
     @Test
@@ -170,7 +170,7 @@ class CustomerServiceTest {
                 .thenReturn(Flux.just(document(CustomerStatus.ACTIVE)));
 
         customerService.findCustomers(CustomerStatus.ACTIVE, null, CustomerProfile.VIP)
-                .collectList().block();
+                .toList().blockingGet();
 
         @SuppressWarnings({"unchecked", "rawtypes"})
         ArgumentCaptor<Example<CustomerDocument>> captor =

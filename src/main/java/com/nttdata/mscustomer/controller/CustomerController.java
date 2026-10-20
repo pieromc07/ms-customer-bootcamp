@@ -1,5 +1,9 @@
 package com.nttdata.mscustomer.controller;
 
+import static com.nttdata.mscustomer.util.ReactiveBridge.toFlux;
+import static com.nttdata.mscustomer.util.ReactiveBridge.toMono;
+import static com.nttdata.mscustomer.util.ReactiveBridge.toVoid;
+
 import com.nttdata.mscustomer.generated.api.CustomersApi;
 import com.nttdata.mscustomer.generated.dto.CreateCustomerRequest;
 import com.nttdata.mscustomer.generated.dto.Customer;
@@ -37,7 +41,7 @@ public class CustomerController implements CustomersApi {
 
         return createCustomerRequest
                 .map(customerMapper::toDomain)
-                .flatMap(customerService::createCustomer)
+                .flatMap(customer -> toMono(customerService.createCustomer(customer)))
                 .map(customerMapper::toResponse)
                 .map(response -> ResponseEntity
                         .created(URI.create("/api/v1/customers/" + response.getId()))
@@ -51,10 +55,10 @@ public class CustomerController implements CustomersApi {
             CustomerProfile profile,
             ServerWebExchange exchange) {
 
-        Flux<Customer> customers = customerService.findCustomers(
+        Flux<Customer> customers = toFlux(customerService.findCustomers(
                         customerMapper.toDomainStatus(status),
                         customerMapper.toDomainCustomerType(customerType),
-                        customerMapper.toDomainProfile(profile))
+                        customerMapper.toDomainProfile(profile)))
                 .map(customerMapper::toResponse);
         return Mono.just(ResponseEntity.ok(customers));
     }
@@ -64,7 +68,7 @@ public class CustomerController implements CustomersApi {
             String id,
             ServerWebExchange exchange) {
 
-        return customerService.getCustomer(id)
+        return toMono(customerService.getCustomer(id))
                 .map(customerMapper::toResponse)
                 .map(response -> ResponseEntity.ok(response));
     }
@@ -77,7 +81,7 @@ public class CustomerController implements CustomersApi {
 
         return updateCustomerRequest
                 .map(request -> customerMapper.toChanges(request))
-                .flatMap(changes -> customerService.updateCustomer(id, changes))
+                .flatMap(changes -> toMono(customerService.updateCustomer(id, changes)))
                 .map(customerMapper::toResponse)
                 .map(response -> ResponseEntity.ok(response));
     }
@@ -90,7 +94,7 @@ public class CustomerController implements CustomersApi {
 
         return patchCustomerRequest
                 .map(request -> customerMapper.toChanges(request))
-                .flatMap(changes -> customerService.updateCustomer(id, changes))
+                .flatMap(changes -> toMono(customerService.updateCustomer(id, changes)))
                 .map(customerMapper::toResponse)
                 .map(response -> ResponseEntity.ok(response));
     }
@@ -100,7 +104,7 @@ public class CustomerController implements CustomersApi {
             String id,
             ServerWebExchange exchange) {
 
-        return customerService.deactivateCustomer(id)
+        return toVoid(customerService.deactivateCustomer(id))
                 .then(Mono.fromSupplier(() -> ResponseEntity.<Void>noContent().build()));
     }
 }

@@ -1,20 +1,25 @@
 package com.nttdata.mscustomer.service;
 
+import static com.nttdata.mscustomer.util.ReactiveBridge.toFlowable;
+import static com.nttdata.mscustomer.util.ReactiveBridge.toMaybe;
+import static com.nttdata.mscustomer.util.ReactiveBridge.toSingle;
+
 import com.nttdata.mscustomer.exception.CustomerNotFoundException;
 import com.nttdata.mscustomer.exception.DuplicateCustomerException;
 import com.nttdata.mscustomer.document.CustomerDocument;
 import com.nttdata.mscustomer.mapper.CustomerMapper;
+import com.nttdata.mscustomer.model.Customer;
 import com.nttdata.mscustomer.model.CustomerChanges;
 import com.nttdata.mscustomer.model.CustomerProfile;
 import com.nttdata.mscustomer.model.CustomerStatus;
 import com.nttdata.mscustomer.model.CustomerType;
 import com.nttdata.mscustomer.repository.CustomerRepository;
+import io.reactivex.rxjava3.core.Completable;
+import io.reactivex.rxjava3.core.Flowable;
+import io.reactivex.rxjava3.core.Single;
 import java.time.Instant;
 import org.springframework.data.domain.Example;
 import org.springframework.stereotype.Service;
-import com.nttdata.mscustomer.model.Customer;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 
 @Service
 public class CustomerService {
@@ -29,13 +34,13 @@ public class CustomerService {
         this.customerMapper = customerMapper;
     }
 
-    public Mono<Customer> createCustomer(Customer customer) {
-        return customerRepository.existsByDocumentTypeAndDocumentNumber(
+    public Single<Customer> createCustomer(Customer customer) {
+        return toSingle(customerRepository.existsByDocumentTypeAndDocumentNumber(
                 customer.getDocumentType(),
                 customer.getDocumentNumber()
-        ).flatMap(exists -> {
+        )).flatMap(exists -> {
             if (exists) {
-                return Mono.error(new DuplicateCustomerException(
+                return Single.error(() -> new DuplicateCustomerException(
                         "Customer with document type "
                                 + customer.getDocumentType()
                                 + " and document number "
@@ -44,12 +49,12 @@ public class CustomerService {
                 ));
             }
 
-            return customerRepository.save(customerMapper.toDocument(customer))
+            return toSingle(customerRepository.save(customerMapper.toDocument(customer)))
                     .map(customerMapper::toDomain);
         });
     }
 
-    public Flux<Customer> findCustomers(
+    public Flowable<Customer> findCustomers(
             CustomerStatus status,
             CustomerType customerType,
             CustomerProfile profile) {
@@ -58,38 +63,39 @@ public class CustomerService {
         probe.setCustomerType(customerType);
         probe.setProfile(profile);
 
-        return customerRepository.findAll(Example.of(probe))
+        return toFlowable(customerRepository.findAll(Example.of(probe)))
                 .map(customerMapper::toDomain);
     }
 
-    public Mono<Customer> getCustomer(String id) {
+    public Single<Customer> getCustomer(String id) {
         return findExisting(id).map(customerMapper::toDomain);
     }
 
-    public Mono<Customer> updateCustomer(String id, CustomerChanges changes) {
+    public Single<Customer> updateCustomer(String id, CustomerChanges changes) {
         return findExisting(id)
                 .flatMap(document -> {
                     Customer customer = customerMapper.toDomain(document);
                     customer.applyChanges(changes, Instant.now());
-                    return customerRepository.save(customerMapper.toDocument(customer));
+                    return toSingle(customerRepository.save(customerMapper.toDocument(customer)));
                 })
                 .map(customerMapper::toDomain);
     }
 
-    public Mono<Void> deactivateCustomer(String id) {
+    public Completable deactivateCustomer(String id) {
         return findExisting(id)
-                .flatMap(document -> {
+                .flatMapCompletable(document -> {
                     Customer customer = customerMapper.toDomain(document);
                     if (!customer.deactivate(Instant.now())) {
-                        return Mono.empty();
+                        return Completable.complete();
                     }
-                    return customerRepository.save(customerMapper.toDocument(customer)).then();
+                    return Completable.fromPublisher(
+                            customerRepository.save(customerMapper.toDocument(customer)));
                 });
     }
 
-    private Mono<CustomerDocument> findExisting(String id) {
-        return customerRepository.findById(id)
-                .switchIfEmpty(Mono.error(new CustomerNotFoundException(
+    private Single<CustomerDocument> findExisting(String id) {
+        return toMaybe(customerRepository.findById(id))
+                .switchIfEmpty(Single.error(() -> new CustomerNotFoundException(
                         "Customer with id " + id + " not found")));
     }
 }
