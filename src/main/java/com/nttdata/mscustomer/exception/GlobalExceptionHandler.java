@@ -21,6 +21,26 @@ public class GlobalExceptionHandler {
                 .body(toApiError(HttpStatus.CONFLICT, exception.getMessage(), exchange));
     }
 
+    @ExceptionHandler(CustomerNotFoundException.class)
+    public ResponseEntity<ApiError> handleCustomerNotFound(
+            CustomerNotFoundException exception,
+            ServerWebExchange exchange) {
+
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(toApiError(HttpStatus.NOT_FOUND, exception.getMessage(), exchange));
+    }
+
+    @ExceptionHandler(InactiveCustomerException.class)
+    public ResponseEntity<ApiError> handleInactiveCustomer(
+            InactiveCustomerException exception,
+            ServerWebExchange exchange) {
+
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(toApiError(HttpStatus.CONFLICT, exception.getMessage(), exchange));
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiError> handleInvalidCustomer(
             IllegalArgumentException exception,

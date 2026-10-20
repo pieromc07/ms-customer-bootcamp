@@ -684,7 +684,7 @@ components:
             - RUC
         documentNumber:
           type: string
-          pattern: '^20[0-9]{9}$'
+          pattern: '^(10|15|16|17|20)[0-9]{9}$'
           example: '20123456789'
         email:
           type: string
@@ -762,9 +762,23 @@ components:
           $ref: '#/components/schemas/BusinessDetails'
 
     UpdateCustomerRequest:
-      oneOf:
-        - $ref: '#/components/schemas/UpdatePersonalCustomerRequest'
-        - $ref: '#/components/schemas/UpdateBusinessCustomerRequest'
+      type: object
+      additionalProperties: false
+      description: >
+        Exactly one of personalDetails or businessDetails must be provided,
+        matching the customer type. The server enforces this rule.
+      properties:
+        email:
+          type: string
+          format: email
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        personalDetails:
+          $ref: '#/components/schemas/PersonalDetails'
+        businessDetails:
+          $ref: '#/components/schemas/BusinessDetails'
 
     CreatePersonalCustomerRequest:
       type: object
@@ -824,7 +838,7 @@ components:
             - RUC
         documentNumber:
           type: string
-          pattern: '^20[0-9]{9}$'
+          pattern: '^(10|15|16|17|20)[0-9]{9}$'
           example: '20123456789'
         email:
           type: string
@@ -838,38 +852,6 @@ components:
           enum:
             - STANDARD
             - PYME
-        businessDetails:
-          $ref: '#/components/schemas/BusinessDetails'
-
-    UpdatePersonalCustomerRequest:
-      type: object
-      additionalProperties: false
-      required:
-        - personalDetails
-      properties:
-        email:
-          type: string
-          format: email
-          nullable: true
-        phone:
-          type: string
-          nullable: true
-        personalDetails:
-          $ref: '#/components/schemas/PersonalDetails'
-
-    UpdateBusinessCustomerRequest:
-      type: object
-      additionalProperties: false
-      required:
-        - businessDetails
-      properties:
-        email:
-          type: string
-          format: email
-          nullable: true
-        phone:
-          type: string
-          nullable: true
         businessDetails:
           $ref: '#/components/schemas/BusinessDetails'
 

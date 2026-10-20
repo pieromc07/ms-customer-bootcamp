@@ -5,11 +5,16 @@ import com.nttdata.mscustomer.generated.dto.BusinessDetails;
 import com.nttdata.mscustomer.generated.dto.CreateCustomerRequest;
 import com.nttdata.mscustomer.generated.dto.Customer;
 import com.nttdata.mscustomer.generated.dto.CustomerStatus;
+import com.nttdata.mscustomer.generated.dto.PatchCustomerRequest;
 import com.nttdata.mscustomer.generated.dto.PersonalDetails;
+import com.nttdata.mscustomer.generated.dto.UpdateCustomerRequest;
+import com.nttdata.mscustomer.model.ContactUpdate;
+import com.nttdata.mscustomer.model.CustomerChanges;
 import com.nttdata.mscustomer.model.CustomerProfile;
 import com.nttdata.mscustomer.model.CustomerType;
 import com.nttdata.mscustomer.model.DocumentType;
 import java.time.ZoneOffset;
+import org.openapitools.jackson.nullable.JsonNullable;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -24,35 +29,95 @@ public class CustomerMapper {
                     "Customer type, document type and profile are required");
         }
 
-        CustomerType customerType = CustomerType.valueOf(
-                request.getCustomerType().getValue());
-        if (customerType == CustomerType.PERSONAL) {
-            if (request.getPersonalDetails() == null) {
-                throw new IllegalArgumentException(
-                        "Personal details are required for a personal customer");
-            }
-        } else if (request.getBusinessDetails() == null) {
-            throw new IllegalArgumentException(
-                    "Business details are required for a business customer");
-        }
-
-        return new com.nttdata.mscustomer.model.Customer(
-                customerType,
+        return com.nttdata.mscustomer.model.Customer.create(
+                CustomerType.valueOf(request.getCustomerType().getValue()),
                 CustomerProfile.valueOf(request.getProfile().getValue()),
                 DocumentType.valueOf(request.getDocumentType().getValue()),
                 request.getDocumentNumber(),
-                request.getEmail(),
-                request.getPhone(),
-                customerType == CustomerType.PERSONAL
-                        ? new com.nttdata.mscustomer.model.PersonalDetails(
-                                request.getPersonalDetails().getFirstName(),
-                                request.getPersonalDetails().getLastName())
-                        : null,
-                customerType == CustomerType.BUSINESS
-                        ? new com.nttdata.mscustomer.model.BusinessDetails(
-                                request.getBusinessDetails().getLegalName(),
-                                request.getBusinessDetails().getTradeName())
-                        : null);
+                valueOf(request.getEmail()),
+                valueOf(request.getPhone()),
+                toPersonalDetails(request.getPersonalDetails()),
+                toBusinessDetails(request.getBusinessDetails()));
+    }
+
+    public CustomerChanges toChanges(UpdateCustomerRequest request) {
+        if ((request.getPersonalDetails() == null) == (request.getBusinessDetails() == null)) {
+            throw new IllegalArgumentException(
+                    "Exactly one of personalDetails or businessDetails is required");
+        }
+
+        return new CustomerChanges(
+                ContactUpdate.set(valueOf(request.getEmail())),
+                ContactUpdate.set(valueOf(request.getPhone())),
+                toPersonalDetails(request.getPersonalDetails()),
+                toBusinessDetails(request.getBusinessDetails()));
+    }
+
+    public CustomerChanges toChanges(PatchCustomerRequest request) {
+        if (request.getPersonalDetails() != null && request.getBusinessDetails() != null) {
+            throw new IllegalArgumentException(
+                    "Only one of personalDetails or businessDetails can be patched");
+        }
+
+        ContactUpdate email = toContactUpdate(request.getEmail());
+        ContactUpdate phone = toContactUpdate(request.getPhone());
+        if (!email.provided() && !phone.provided()
+                && request.getPersonalDetails() == null
+                && request.getBusinessDetails() == null) {
+            throw new IllegalArgumentException("At least one field must be provided");
+        }
+
+        return new CustomerChanges(
+                email,
+                phone,
+                toPersonalDetails(request.getPersonalDetails()),
+                toBusinessDetails(request.getBusinessDetails()));
+    }
+
+    public com.nttdata.mscustomer.model.CustomerStatus toDomainStatus(
+            CustomerStatus status) {
+        return status == null
+                ? null
+                : com.nttdata.mscustomer.model.CustomerStatus.valueOf(status.getValue());
+    }
+
+    public CustomerType toDomainCustomerType(
+            com.nttdata.mscustomer.generated.dto.CustomerType customerType) {
+        return customerType == null ? null : CustomerType.valueOf(customerType.getValue());
+    }
+
+    public CustomerProfile toDomainProfile(
+            com.nttdata.mscustomer.generated.dto.CustomerProfile profile) {
+        return profile == null ? null : CustomerProfile.valueOf(profile.getValue());
+    }
+
+    private static <T> T valueOf(JsonNullable<T> value) {
+        return value == null ? null : value.orElse(null);
+    }
+
+    private static ContactUpdate toContactUpdate(JsonNullable<String> value) {
+        if (value == null || value.isUndefined()) {
+            return ContactUpdate.KEEP;
+        }
+        return ContactUpdate.set(value.orElse(null));
+    }
+
+    private static com.nttdata.mscustomer.model.PersonalDetails toPersonalDetails(
+            PersonalDetails details) {
+        return details == null
+                ? null
+                : new com.nttdata.mscustomer.model.PersonalDetails(
+                        details.getFirstName(),
+                        details.getLastName());
+    }
+
+    private static com.nttdata.mscustomer.model.BusinessDetails toBusinessDetails(
+            BusinessDetails details) {
+        return details == null
+                ? null
+                : new com.nttdata.mscustomer.model.BusinessDetails(
+                        details.getLegalName(),
+                        valueOf(details.getTradeName()));
     }
 
     public CustomerDocument toDocument(
@@ -99,8 +164,8 @@ public class CustomerMapper {
         response.setDocumentType(Customer.DocumentTypeEnum
                 .valueOf(customer.getDocumentType().name()));
         response.setDocumentNumber(customer.getDocumentNumber());
-        response.setEmail(customer.getEmail());
-        response.setPhone(customer.getPhone());
+        response.setEmail(JsonNullable.of(customer.getEmail()));
+        response.setPhone(JsonNullable.of(customer.getPhone()));
         response.setProfile(Customer.ProfileEnum
                 .valueOf(customer.getProfile().name()));
         response.setStatus(CustomerStatus.valueOf(customer.getStatus().name()));
@@ -114,7 +179,7 @@ public class CustomerMapper {
         } else {
             BusinessDetails businessDetails = new BusinessDetails(
                     customer.getBusinessDetails().legalName());
-            businessDetails.setTradeName(customer.getBusinessDetails().tradeName());
+            businessDetails.setTradeName(JsonNullable.of(customer.getBusinessDetails().tradeName()));
             response.setBusinessDetails(businessDetails);
         }
         return response;
