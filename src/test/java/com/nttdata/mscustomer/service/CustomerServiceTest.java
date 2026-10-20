@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -12,6 +13,8 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.nttdata.mscustomer.document.CustomerDocument;
+import com.nttdata.mscustomer.event.CustomerEvent;
+import com.nttdata.mscustomer.event.CustomerEventPublisher;
 import com.nttdata.mscustomer.exception.CustomerNotFoundException;
 import com.nttdata.mscustomer.exception.DuplicateCustomerException;
 import com.nttdata.mscustomer.exception.InactiveCustomerException;
@@ -25,6 +28,7 @@ import com.nttdata.mscustomer.model.CustomerType;
 import com.nttdata.mscustomer.model.DocumentType;
 import com.nttdata.mscustomer.model.PersonalDetails;
 import com.nttdata.mscustomer.repository.CustomerRepository;
+import io.reactivex.rxjava3.core.Completable;
 import java.time.Instant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -51,12 +55,97 @@ class CustomerServiceTest {
     @Mock
     private PasswordEncoder passwordEncoder;
 
+    @Mock
+    private CustomerEventPublisher eventPublisher;
+
     private CustomerService customerService;
 
     @BeforeEach
     void setUp() {
         customerService = new CustomerService(
-                customerRepository, new CustomerMapper(), passwordEncoder);
+                customerRepository, new CustomerMapper(), passwordEncoder, eventPublisher);
+        lenient().when(eventPublisher.publish(any(CustomerEvent.class)))
+                .thenReturn(Completable.complete());
+    }
+
+    @Test
+    void createCustomerPublishesCreatedEvent() {
+        when(customerRepository.existsByDocumentTypeAndDocumentNumber(
+                DocumentType.DNI, "12345678")).thenReturn(Mono.just(false));
+        when(passwordEncoder.encode(PASSWORD)).thenReturn(HASH);
+        when(customerRepository.save(any(CustomerDocument.class)))
+                .thenReturn(Mono.just(document(CustomerStatus.ACTIVE)));
+
+        customerService.createCustomer(newPersonal(), PASSWORD).blockingGet();
+
+        ArgumentCaptor<CustomerEvent> captor = ArgumentCaptor.forClass(CustomerEvent.class);
+        verify(eventPublisher).publish(captor.capture());
+        assertEquals("customer.created", captor.getValue().eventType());
+        assertEquals(ID, captor.getValue().customerId());
+        assertEquals(CustomerStatus.ACTIVE, captor.getValue().status());
+        assertEquals(1, captor.getValue().schemaVersion());
+    }
+
+    @Test
+    void createCustomerDoesNotPublishWhenDuplicate() {
+        when(customerRepository.existsByDocumentTypeAndDocumentNumber(
+                DocumentType.DNI, "12345678")).thenReturn(Mono.just(true));
+
+        assertThrows(DuplicateCustomerException.class,
+                () -> customerService.createCustomer(newPersonal(), PASSWORD).blockingGet());
+
+        verifyNoInteractions(eventPublisher);
+    }
+
+    @Test
+    void updateCustomerPublishesUpdatedEvent() {
+        when(customerRepository.findById(ID)).thenReturn(Mono.just(document(CustomerStatus.ACTIVE)));
+        when(customerRepository.save(any(CustomerDocument.class)))
+                .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+        CustomerChanges changes = new CustomerChanges(
+                ContactUpdate.set("new@example.com"), ContactUpdate.KEEP, null, null);
+
+        customerService.updateCustomer(ID, changes).blockingGet();
+
+        ArgumentCaptor<CustomerEvent> captor = ArgumentCaptor.forClass(CustomerEvent.class);
+        verify(eventPublisher).publish(captor.capture());
+        assertEquals("customer.updated", captor.getValue().eventType());
+        assertEquals(ID, captor.getValue().customerId());
+    }
+
+    @Test
+    void updateCustomerDoesNotPublishWhenRejected() {
+        when(customerRepository.findById(ID)).thenReturn(Mono.just(document(CustomerStatus.INACTIVE)));
+        CustomerChanges changes = new CustomerChanges(
+                ContactUpdate.set("new@example.com"), ContactUpdate.KEEP, null, null);
+
+        assertThrows(InactiveCustomerException.class,
+                () -> customerService.updateCustomer(ID, changes).blockingGet());
+
+        verifyNoInteractions(eventPublisher);
+    }
+
+    @Test
+    void deactivateCustomerPublishesDeactivatedEvent() {
+        when(customerRepository.findById(ID)).thenReturn(Mono.just(document(CustomerStatus.ACTIVE)));
+        when(customerRepository.save(any(CustomerDocument.class)))
+                .thenAnswer(invocation -> Mono.just(invocation.getArgument(0)));
+
+        customerService.deactivateCustomer(ID).blockingAwait();
+
+        ArgumentCaptor<CustomerEvent> captor = ArgumentCaptor.forClass(CustomerEvent.class);
+        verify(eventPublisher).publish(captor.capture());
+        assertEquals("customer.deactivated", captor.getValue().eventType());
+        assertEquals(CustomerStatus.INACTIVE, captor.getValue().status());
+    }
+
+    @Test
+    void deactivateAlreadyInactiveCustomerDoesNotPublish() {
+        when(customerRepository.findById(ID)).thenReturn(Mono.just(document(CustomerStatus.INACTIVE)));
+
+        customerService.deactivateCustomer(ID).blockingAwait();
+
+        verifyNoInteractions(eventPublisher);
     }
 
     @Test

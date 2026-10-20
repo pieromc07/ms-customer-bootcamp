@@ -7,6 +7,8 @@ import static com.nttdata.mscustomer.util.ReactiveBridge.toSingle;
 import com.nttdata.mscustomer.exception.CustomerNotFoundException;
 import com.nttdata.mscustomer.exception.DuplicateCustomerException;
 import com.nttdata.mscustomer.document.CustomerDocument;
+import com.nttdata.mscustomer.event.CustomerEvent;
+import com.nttdata.mscustomer.event.CustomerEventPublisher;
 import com.nttdata.mscustomer.mapper.CustomerMapper;
 import com.nttdata.mscustomer.model.Customer;
 import com.nttdata.mscustomer.model.CustomerChanges;
@@ -32,14 +34,17 @@ public class CustomerService {
     private final CustomerRepository customerRepository;
     private final CustomerMapper customerMapper;
     private final PasswordEncoder passwordEncoder;
+    private final CustomerEventPublisher eventPublisher;
 
     public CustomerService(
             CustomerRepository customerRepository,
             CustomerMapper customerMapper,
-            PasswordEncoder passwordEncoder) {
+            PasswordEncoder passwordEncoder,
+            CustomerEventPublisher eventPublisher) {
         this.customerRepository = customerRepository;
         this.customerMapper = customerMapper;
         this.passwordEncoder = passwordEncoder;
+        this.eventPublisher = eventPublisher;
     }
 
     public Single<Customer> createCustomer(Customer customer, String rawPassword) {
@@ -68,7 +73,8 @@ public class CustomerService {
 
             customer.assignPasswordHash(passwordEncoder.encode(rawPassword));
             return toSingle(customerRepository.save(customerMapper.toDocument(customer)))
-                    .map(customerMapper::toDomain);
+                    .map(customerMapper::toDomain)
+                    .flatMap(created -> publishAfter(CustomerEvent.Type.CREATED, created));
         });
     }
 
@@ -96,7 +102,8 @@ public class CustomerService {
                     customer.applyChanges(changes, Instant.now());
                     return toSingle(customerRepository.save(customerMapper.toDocument(customer)));
                 })
-                .map(customerMapper::toDomain);
+                .map(customerMapper::toDomain)
+                .flatMap(updated -> publishAfter(CustomerEvent.Type.UPDATED, updated));
     }
 
     public Completable deactivateCustomer(String id) {
@@ -107,7 +114,9 @@ public class CustomerService {
                         return Completable.complete();
                     }
                     return Completable.fromPublisher(
-                            customerRepository.save(customerMapper.toDocument(customer)));
+                                    customerRepository.save(customerMapper.toDocument(customer)))
+                            .andThen(eventPublisher.publish(
+                                    CustomerEvent.of(CustomerEvent.Type.DEACTIVATED, customer)));
                 });
     }
 
@@ -115,5 +124,10 @@ public class CustomerService {
         return toMaybe(customerRepository.findById(id))
                 .switchIfEmpty(Single.error(() -> new CustomerNotFoundException(
                         "Customer with id " + id + " not found")));
+    }
+
+    private Single<Customer> publishAfter(CustomerEvent.Type type, Customer customer) {
+        return eventPublisher.publish(CustomerEvent.of(type, customer))
+                .andThen(Single.just(customer));
     }
 }
